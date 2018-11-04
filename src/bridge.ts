@@ -18,18 +18,26 @@
  */
 // tslint:disable:arrow-parens
 
+// import {
+//   Browser,
+//   Cookie,
+//   Dialog,
+//   launch,
+//   Page,
+// }                       from 'puppeteer'
+import { Cookie } from 'electron'
 import { EventEmitter } from 'events'
 import fs               from 'fs'
 import path             from 'path'
-import {
-  Browser,
-  Cookie,
-  Dialog,
-  launch,
-  Page,
-}                       from 'puppeteer'
 import StateSwitch      from 'state-switch'
 import { parseString }  from 'xml2js'
+import {
+  Browser,
+  Dialog,
+  // ElementHandle,
+  launch,
+  Page,
+}                          from './electron-driver'
 // import { toJson }       from 'xml2json'
 
 import {
@@ -82,16 +90,18 @@ export class Bridge extends EventEmitter {
 
   public async start (): Promise<void> {
     log.verbose('PuppetPuppeteerBridge', 'start()')
-
+    console.log('开始一次')
     this.state.on('pending')
     try {
+      console.log('初始化initBrowser一次')
       this.browser = await this.initBrowser()
       log.verbose('PuppetPuppeteerBridge', 'start() initBrowser() done')
-
+      console.log('初始化onLoad一次')
       this.on('load', this.onLoad.bind(this))
 
       const ready = new Promise(resolve => this.once('ready', resolve))
       this.page = await this.initPage(this.browser)
+      this.bindEvents(this.page)
       await ready
 
       this.state.on(true)
@@ -104,9 +114,9 @@ export class Bridge extends EventEmitter {
         if (this.page) {
           await this.page.close()
         }
-        if (this.browser) {
-          await this.browser.close()
-        }
+        // if (this.browser) {
+        //   await this.browser.close()
+        // }
       } catch (e2) {
         log.error('PuppetPuppeteerBridge', 'start() exception %s, close page/browser exception %s', e, e2)
       }
@@ -120,21 +130,7 @@ export class Bridge extends EventEmitter {
     log.verbose('PuppetPuppeteerBridge', 'initBrowser()')
 
     const headless = this.options.head ? false : true
-    const browser = await launch({
-      args: [
-        '--audio-output-channels=0',
-        '--disable-default-apps',
-        '--disable-extensions',
-        '--disable-translate',
-        '--disable-gpu',
-        '--disable-setuid-sandbox',
-        '--disable-sync',
-        '--hide-scrollbars',
-        '--mute-audio',
-        '--no-sandbox',
-      ],
-      headless,
-    })
+    const browser = await launch({})
 
     const version = await browser.version()
     log.verbose('PuppetPuppeteerBridge', 'initBrowser() version: %s', version)
@@ -164,20 +160,21 @@ export class Bridge extends EventEmitter {
     }
 
     try {
-      const emitExist = await page.evaluate(() => {
-        return typeof window.wechatyPuppetBridgeEmit === 'function'
-      })
-      if (!emitExist) {
-        /**
-         * expose window.wechatyPuppetBridgeEmit at here.
-         * enable wechaty-bro.js to emit message to bridge
-         */
-        await page.exposeFunction('wechatyPuppetBridgeEmit', this.emit.bind(this))
-      }
-
+      // const emitExist = await this.page.evaluate(() => {
+      //   return typeof window.wechatyPuppetBridgeEmit === 'function'
+      // })
+      // if (!emitExist) {
+      //   /**
+      //    * expose window.wechatyPuppetBridgeEmit at here.
+      //    * enable wechaty-bro.js to emit message to bridge
+      //    */
+      //   await page.exposeFunction('wechatyPuppetBridgeEmit', this.emit.bind(this))
+      // }
+      console.log('注入js')
       await this.readyAngular(page)
       await this.inject(page)
-      await this.clickSwitchAccount(page)
+      // this.bindEvents(page)
+      // await this.clickSwitchAccount(page)
 
       this.emit('ready')
 
@@ -188,34 +185,50 @@ export class Bridge extends EventEmitter {
     }
   }
 
+  public bindEvents (page: Page): void {
+    const eventList = ['ding', 'heartbeat', 'scan', 'login', 'message', 'unload', 'logout']
+    eventList.forEach((evtName) => {
+      // @ts-ignore
+      page.bindEvent(evtName, (event, args) => {
+        // @ts-ignore
+        console.log('执行一次监听事件：' + evtName + ',内容' + args)
+        this.emit(evtName, args)
+      })
+    })
+  }
+
   public async initPage (browser: Browser): Promise<Page> {
     log.verbose('PuppetPuppeteerBridge', 'initPage()')
-
+    console.log('initPage')
     // set this in time because the following callbacks
     // might be called before initPage() return.
     const page = this.page =  await browser.newPage()
 
+    // @ts-ignore
     page.on('error',  e => this.emit('error', e))
 
     page.on('dialog', this.onDialog.bind(this))
-
-    const cookieList = (await this.options.memory.get(MEMORY_SLOT)) as Cookie[]
+    page.on('load', () => {
+      this.emit('load', page)
+      console.log('emit loaded')
+    })
+    const cookieList: Cookie[] | undefined = []
     const url        = this.entryUrl(cookieList)
 
     log.verbose('PuppetPuppeteerBridge', 'initPage() before page.goto(url)')
 
     // Does this related to(?) the CI Error: exception: Navigation Timeout Exceeded: 30000ms exceeded
+    console.log('GO-TOurl' + url)
     await page.goto(url)
 
     log.verbose('PuppetPuppeteerBridge', 'initPage() after page.goto(url)')
 
-    if (cookieList && cookieList.length) {
-      await page.setCookie(...cookieList)
-      log.silly('PuppetPuppeteerBridge', 'initPage() page.setCookie() %s cookies set back', cookieList.length)
-    }
+    // if (cookieList && cookieList.length) {
+    //   await page.setCookie(...cookieList)
+    //   log.silly('PuppetPuppeteerBridge', 'initPage() page.setCookie() %s cookies set back', cookieList.length)
+    // }
 
-    page.on('load', () => this.emit('load', page))
-    await page.reload() // reload page to make effect of the new cookie.
+    // await page.reload() // reload page to make effect of the new cookie.
 
     return page
   }
@@ -277,6 +290,7 @@ export class Bridge extends EventEmitter {
       const SUCCESS_CIPHER = 'ding() OK!'
       const future = new Promise(resolve => this.once('dong', resolve))
       this.ding(SUCCESS_CIPHER)
+      console.log(SUCCESS_CIPHER)
       const r = await future
       if (r !== SUCCESS_CIPHER) {
         throw new Error('fail to get right return from call ding()')
@@ -685,60 +699,63 @@ export class Bridge extends EventEmitter {
    */
   public async proxyWechaty (
     wechatyFunc : string,
-    ...args     : any[]
+    // @ts-ignore
+    ...args     : any[],
   ): Promise<any> {
-    log.silly('PuppetPuppeteerBridge', 'proxyWechaty(%s%s)',
-                                        wechatyFunc,
-                                        args.length === 0
-                                          ? ''
-                                          : ', ' + args.join(', '),
-              )
-
-    if (!this.page) {
-      throw new Error('no page')
-    }
-
-    try {
-      const noWechaty = await this.page.evaluate(() => {
-        return typeof WechatyBro === 'undefined'
-      })
-      if (noWechaty) {
-        const e = new Error('there is no WechatyBro in browser(yet)')
-        throw e
-      }
-    } catch (e) {
-      log.warn('PuppetPuppeteerBridge', 'proxyWechaty() noWechaty exception: %s', e)
-      throw e
-    }
-
-    const argsEncoded = Buffer.from(
-      encodeURIComponent(
-        JSON.stringify(args),
-      ),
-    ).toString('base64')
-    // see: http://blog.sqrtthree.com/2015/08/29/utf8-to-b64/
-    const argsDecoded = `JSON.parse(decodeURIComponent(window.atob('${argsEncoded}')))`
-
-    const wechatyScript = `
-      WechatyBro
-        .${wechatyFunc}
-        .apply(
-          undefined,
-          ${argsDecoded},
-        )
-    `.replace(/[\n\s]+/, ' ')
-    // log.silly('PuppetPuppeteerBridge', 'proxyWechaty(%s, ...args) %s', wechatyFunc, wechatyScript)
-    // console.log('proxyWechaty wechatyFunc args[0]: ')
-    // console.log(args[0])
-
-    try {
-      const ret = await this.page.evaluate(wechatyScript)
-      return ret
-    } catch (e) {
-      log.verbose('PuppetPuppeteerBridge', 'proxyWechaty(%s, %s) ', wechatyFunc, args.join(', '))
-      log.warn('PuppetPuppeteerBridge', 'proxyWechaty() exception: %s', e.message)
-      throw e
-    }
+    // @ts-ignore
+    return this.page.send(wechatyFunc, ...args)
+    // log.silly('PuppetPuppeteerBridge', 'proxyWechaty(%s%s)',
+    //                                     wechatyFunc,
+    //                                     args.length === 0
+    //                                       ? ''
+    //                                       : ', ' + args.join(', '),
+    //           )
+    //
+    // if (!this.page) {
+    //   throw new Error('no page')
+    // }
+    //
+    // try {
+    //   const noWechaty = await this.page.evaluate(() => {
+    //     return typeof WechatyBro === 'undefined'
+    //   })
+    //   if (noWechaty) {
+    //     const e = new Error('there is no WechatyBro in browser(yet)')
+    //     throw e
+    //   }
+    // } catch (e) {
+    //   log.warn('PuppetPuppeteerBridge', 'proxyWechaty() noWechaty exception: %s', e)
+    //   throw e
+    // }
+    //
+    // const argsEncoded = Buffer.from(
+    //   encodeURIComponent(
+    //     JSON.stringify(args),
+    //   ),
+    // ).toString('base64')
+    // // see: http://blog.sqrtthree.com/2015/08/29/utf8-to-b64/
+    // const argsDecoded = `JSON.parse(decodeURIComponent(window.atob('${argsEncoded}')))`
+    //
+    // const wechatyScript = `
+    //   WechatyBro
+    //     .${wechatyFunc}
+    //     .apply(
+    //       undefined,
+    //       ${argsDecoded},
+    //     )
+    // `.replace(/[\n\s]+/, ' ')
+    // // log.silly('PuppetPuppeteerBridge', 'proxyWechaty(%s, ...args) %s', wechatyFunc, wechatyScript)
+    // // console.log('proxyWechaty wechatyFunc args[0]: ')
+    // // console.log(args[0])
+    //
+    // try {
+    //   const ret = await this.page.evaluate(wechatyScript)
+    //   return ret
+    // } catch (e) {
+    //   log.verbose('PuppetPuppeteerBridge', 'proxyWechaty(%s, %s) ', wechatyFunc, args.join(', '))
+    //   log.warn('PuppetPuppeteerBridge', 'proxyWechaty() exception: %s', e.message)
+    //   throw e
+    // }
   }
 
   public ding (data: any): void {
@@ -766,9 +783,12 @@ export class Bridge extends EventEmitter {
   }
 
   public async innerHTML (): Promise<string> {
-    const html = await this.evaluate(() => {
-      return window.document.body.innerHTML
-    })
+    // const html = await this.evaluate(() => {
+    //   return window.document.body.innerHTML
+    // })
+    // return html
+    // @ts-ignore
+    const html = await this.page.evaluate('return document.body.innerHTML')
     return html
   }
 
@@ -864,66 +884,66 @@ export class Bridge extends EventEmitter {
     // })
   }
 
-  public async clickSwitchAccount (page: Page): Promise<boolean> {
-    log.verbose('PuppetPuppeteerBridge', 'clickSwitchAccount()')
-
-    // https://github.com/GoogleChrome/puppeteer/issues/537#issuecomment-334918553
-    // async function listXpath(thePage: Page, xpath: string): Promise<ElementHandle[]> {
-    //   log.verbose('PuppetPuppeteerBridge', 'clickSwitchAccount() listXpath()')
-
-    //   try {
-    //     const nodeHandleList = await (thePage as any).evaluateHandle(xpathInner => {
-    //       const nodeList: Node[] = []
-    //       const query = document.evaluate(xpathInner, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)
-    //       for (let i = 0, length = query.snapshotLength; i < length; ++i) {
-    //         nodeList.push(query.snapshotItem(i))
-    //       }
-    //       return nodeList
-    //     }, xpath)
-    //     const properties = await nodeHandleList.getProperties()
-
-    //     const elementHandleList:  ElementHandle[] = []
-    //     const releasePromises:    Promise<void>[] = []
-
-    //     for (const property of properties.values()) {
-    //       const element = property.asElement()
-    //       if (element)
-    //         elementHandleList.push(element)
-    //       else
-    //         releasePromises.push(property.dispose())
-    //     }
-    //     await Promise.all(releasePromises)
-    //     return elementHandleList
-    //   } catch (e) {
-    //     log.verbose('PuppetPuppeteerBridge', 'clickSwitchAccount() listXpath() exception: %s', e)
-    //     return []
-    //   }
-    // }
-
-    // TODO: use page.$x() (with puppeteer v1.1 or above) to replace DIY version of listXpath() instead.
-    // See: https://github.com/GoogleChrome/puppeteer/blob/v1.1.0/docs/api.md#pagexexpression
-
-    const XPATH_SELECTOR =
-      `//div[contains(@class,'association') and contains(@class,'show')]/a[@ng-click='qrcodeLogin()']`
-
-    try {
-      // const [button] = await listXpath(page, XPATH_SELECTOR)
-      const [button] = await page.$x(XPATH_SELECTOR)
-      if (button) {
-        await button.click()
-        log.silly('PuppetPuppeteerBridge', 'clickSwitchAccount() clicked!')
-        return true
-
-      } else {
-        log.silly('PuppetPuppeteerBridge', 'clickSwitchAccount() button not found')
-        return false
-      }
-
-    } catch (e) {
-      log.silly('PuppetPuppeteerBridge', 'clickSwitchAccount() exception: %s', e)
-      throw e
-    }
-  }
+  // public async clickSwitchAccount (page: Page): Promise<boolean> {
+  //   log.verbose('PuppetPuppeteerBridge', 'clickSwitchAccount()')
+  //
+  //   // https://github.com/GoogleChrome/puppeteer/issues/537#issuecomment-334918553
+  //   // async function listXpath(thePage: Page, xpath: string): Promise<ElementHandle[]> {
+  //   //   log.verbose('PuppetPuppeteerBridge', 'clickSwitchAccount() listXpath()')
+  //
+  //   //   try {
+  //   //     const nodeHandleList = await (thePage as any).evaluateHandle(xpathInner => {
+  //   //       const nodeList: Node[] = []
+  //   //       const query = document.evaluate(xpathInner, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)
+  //   //       for (let i = 0, length = query.snapshotLength; i < length; ++i) {
+  //   //         nodeList.push(query.snapshotItem(i))
+  //   //       }
+  //   //       return nodeList
+  //   //     }, xpath)
+  //   //     const properties = await nodeHandleList.getProperties()
+  //
+  //   //     const elementHandleList:  ElementHandle[] = []
+  //   //     const releasePromises:    Promise<void>[] = []
+  //
+  //   //     for (const property of properties.values()) {
+  //   //       const element = property.asElement()
+  //   //       if (element)
+  //   //         elementHandleList.push(element)
+  //   //       else
+  //   //         releasePromises.push(property.dispose())
+  //   //     }
+  //   //     await Promise.all(releasePromises)
+  //   //     return elementHandleList
+  //   //   } catch (e) {
+  //   //     log.verbose('PuppetPuppeteerBridge', 'clickSwitchAccount() listXpath() exception: %s', e)
+  //   //     return []
+  //   //   }
+  //   // }
+  //
+  //   // TODO: use page.$x() (with puppeteer v1.1 or above) to replace DIY version of listXpath() instead.
+  //   // See: https://github.com/GoogleChrome/puppeteer/blob/v1.1.0/docs/api.md#pagexexpression
+  //
+  //   const XPATH_SELECTOR =
+  //     `//div[contains(@class,'association') and contains(@class,'show')]/a[@ng-click='qrcodeLogin()']`
+  //
+  //   try {
+  //     // const [button] = await listXpath(page, XPATH_SELECTOR)
+  //     const [button] = await page.$x(XPATH_SELECTOR)
+  //     if (button) {
+  //       await button.click()
+  //       log.silly('PuppetPuppeteerBridge', 'clickSwitchAccount() clicked!')
+  //       return true
+  //
+  //     } else {
+  //       log.silly('PuppetPuppeteerBridge', 'clickSwitchAccount() button not found')
+  //       return false
+  //     }
+  //
+  //   } catch (e) {
+  //     log.silly('PuppetPuppeteerBridge', 'clickSwitchAccount() exception: %s', e)
+  //     throw e
+  //   }
+  // }
 
   public async hostname (): Promise<string | null> {
     log.verbose('PuppetPuppeteerBridge', 'hostname()')
@@ -933,7 +953,7 @@ export class Bridge extends EventEmitter {
     }
 
     try {
-      const hostname = await this.page.evaluate(() => window.location.hostname) as string
+      const hostname = await this.page.evaluate('return location.hostname') as any as string
       log.silly('PuppetPuppeteerBridge', 'hostname() got %s', hostname)
       return hostname
     } catch (e) {
@@ -961,7 +981,7 @@ export class Bridge extends EventEmitter {
       return
     } else {
       // FIXME: puppeteer typing bug
-      cookieList = await this.page.cookies() as any as Cookie[]
+      cookieList = await this.page.cookies({}) as any as Cookie[]
       return cookieList
     }
   }
@@ -1013,7 +1033,7 @@ export class Bridge extends EventEmitter {
     if (!this.page) {
       throw new Error('no page')
     }
-
+    console.log('reload一次')
     await this.page.reload()
     return
   }
@@ -1021,17 +1041,6 @@ export class Bridge extends EventEmitter {
   public async evaluate (fn: () => any, ...args: any[]): Promise<any> {
     log.silly('PuppetPuppeteerBridge', 'evaluate()')
 
-    if (!this.page) {
-      throw new Error('no page')
-    }
-
-    try {
-      return await this.page.evaluate(fn, ...args)
-    } catch (e) {
-      log.error('PuppetPuppeteerBridge', 'evaluate() exception: %s', e)
-      this.emit('error', e)
-      return null
-    }
   }
 }
 

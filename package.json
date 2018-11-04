@@ -15,11 +15,12 @@
     "lint:es": "eslint \"{bin,examples,scripts,src,tests}/**/*.js\" --ignore-pattern=\"tests/fixtures/**\"",
     "lint:md": "markdownlint README.md",
     "lint:ts": "tslint --project tsconfig.json && tsc --noEmit",
-    "start": "ts-node examples/demo.ts",
+    "start": "npm run demo",
     "test": "npm run lint && npm run test:unit:retry",
     "test:pack": "bash -x scripts/npm-pack-testing.sh",
     "test:unit": "blue-tape -r ts-node/register \"src/**/*.spec.ts\" \"src/*.spec.ts\" \"tests/*.spec.ts\" \"tests/**/*.spec.ts\"",
-    "test:unit:retry": "ts-node scripts/retry-unit-tests"
+    "test:unit:retry": "ts-node scripts/retry-unit-tests",
+    "demo": "electron ./examples/electron-app/Main"
   },
   "repository": {
     "type": "git",
@@ -73,10 +74,12 @@
     "normalize-package-data": "^2.4.0",
     "semver": "^5.5.0",
     "shx": "^0.3.1",
+    "electron": "2.0.13",
     "sinon": "^6.0.1",
     "ts-node": "^7.0.0",
     "tslint": "^5.11.0",
     "tslint-config-standard": "^8.0.0",
+    "tslint-jsdoc-rules": "^0.1.0",
     "typescript": "^3.0.1",
     "wechaty-puppet": "^0.14.1"
   },

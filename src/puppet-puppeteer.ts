@@ -140,7 +140,7 @@ export class PuppetPuppeteer extends Puppet {
        * Overwrite the memory in bridge
        * because it could be changed between constructor() and start()
        */
-      this.bridge.options.memory = this.memory
+      // this.bridge.options.memory = this.memory
 
       // this.initWatchdog()
       // this.initWatchdogForScan()
@@ -203,13 +203,14 @@ export class PuppetPuppeteer extends Puppet {
     const dog    = this.scanWatchdog
 
     // clean the dog because this could be re-inited
-    // dog.removeAllListeners()
+    dog.removeAllListeners()
 
     puppet.on('scan', info => dog.feed({
       data: info,
       type: 'scan',
     }))
     puppet.on('login',  user => {
+      console.log('登录后停止看门狗' + user)
       // dog.feed({
       //   data: user,
       //   type: 'login',
@@ -228,13 +229,19 @@ export class PuppetPuppeteer extends Puppet {
     dog.on('reset', async (food, timePast) => {
       log.warn('PuppetPuppeteer', 'initScanWatchdog() on(reset) lastFood: %s, timePast: %s',
                             food.data, timePast)
+      console.log('重置看门狗')
       try {
-        await this.bridge.reload()
+        // @ts-ignore
+        console.log('reload123')
+        // await this.bridge.reload()
+
       } catch (e) {
         log.error('PuppetPuppeteer', 'initScanWatchdog() on(reset) exception: %s', e)
         try {
           log.error('PuppetPuppeteer', 'initScanWatchdog() on(reset) try to recover by bridge.{quit,init}()', e)
+          // @ts-ignore
           await this.bridge.stop()
+          // @ts-ignore
           await this.bridge.start()
           log.error('PuppetPuppeteer', 'initScanWatchdog() on(reset) recover successful')
         } catch (e) {
@@ -267,8 +274,10 @@ export class PuppetPuppeteer extends Puppet {
     this.removeAllListeners('watchdog')
 
     try {
+      // @ts-ignore
       await this.bridge.stop()
       // register the removeListeners micro task at then end of the task queue
+      // @ts-ignore
       setImmediate(() => this.bridge.removeAllListeners())
     } catch (e) {
       log.error('PuppetPuppeteer', 'this.bridge.quit() exception: %s', e.message)
@@ -288,10 +297,17 @@ export class PuppetPuppeteer extends Puppet {
       log.warn('PuppetPuppeteer', e.message)
       throw e
     }
-
-    this.bridge.on('dong'     , data => this.emit('dong', data))
+// @ts-ignore
+    this.bridge.on('dong'     , data => {
+      console.log('puppet-bridge执行dong:' + data)
+      this.emit('dong', data)
+    })
     // this.bridge.on('ding'     , Event.onDing.bind(this))
-    this.bridge.on('heartbeat', data => this.emit('watchdog', { type: 'bridge ding', data }))
+    // @ts-ignore
+    this.bridge.on('heartbeat', data => {
+      console.log('puppet-bridge执行心跳:' + data)
+      this.emit('watchdog', { type: 'bridge ding', data })
+    })
 
     this.bridge.on('error'    , e => this.emit('error', e))
     this.bridge.on('log'      , Event.onLog.bind(this))
@@ -511,7 +527,12 @@ export class PuppetPuppeteer extends Puppet {
   }
 
   public async login (userId: string): Promise<void> {
+    console.log('puppteer里的login')
     return super.login(userId)
+  }
+
+  public async unload (): Promise<void> {
+      // this.bridge.stop ()
   }
 
   /**
@@ -629,6 +650,7 @@ export class PuppetPuppeteer extends Puppet {
 
   public ding (data?: string): void {
     log.verbose('PuppetPuppeteer', 'ding(%s)', data || '')
+    // @ts-ignore
     this.bridge.ding(data)
   }
 

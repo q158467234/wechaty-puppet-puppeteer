@@ -39,6 +39,28 @@
  */
 
 (function () {
+  require('electron').ipcRenderer.on('bridge', (event, message) => {
+    if (message.args) {
+      if (message.args instanceof Array) {
+        require('electron').ipcRenderer.send(`bridge-${message.method}`, WechatyBro[message.method](...message.args))
+      } else {
+        require('electron').ipcRenderer.send(`bridge-${message.method}`, WechatyBro[message.method](message.args))
+      }
+    } else {
+      require('electron').ipcRenderer.send(`bridge-${message.method}`, WechatyBro[message.method]())
+    }
+  })
+
+  function emit (event, args) {
+    console.log('网页发送一次事件' + event)
+    require('electron').ipcRenderer.send(event, args)
+  }
+
+  function test (...args) {
+    log('test width args :' + args.join('-'))
+    return 'test with args:' + args.join('-')
+  }
+
   function init () {
     if (!angularIsReady()) {
       retObj.code = 503 // 503 SERVICE UNAVAILABLE https://httpstatuses.com/503
@@ -98,11 +120,14 @@
   }
 
   function heartBeat (firstTime) {
+
     var TIMEOUT = 15000 // 15s
     if (firstTime && WechatyBro.vars.heartBeatTimmer) {
+      console.log('第一次心跳')
       log('heartBeat timer exist when 1st time is true? return for do nothing')
       return
     }
+    console.log('循环心跳')
     WechatyBro.emit('heartbeat', 'heartbeat@browser')
     WechatyBro.vars.heartBeatTimmer = setTimeout(heartBeat, TIMEOUT)
     return TIMEOUT
@@ -190,14 +215,14 @@
   function checkScan () {
     // log('checkScan()')
     if (loginState()) {
-      log('checkScan() - already login, no more check, and return(only)') // but I will emit a login event')
+      console.log('checkScan() - already login, no more check, and return(only)') // but I will emit a login event')
       // login('checkScan found already login')
       return
     }
 
     const loginScope = WechatyBro.glue.loginScope
     if (!loginScope) {
-      log('checkScan() - loginScope disappeared, TODO: find out the reason why this happen')
+      console.log('checkScan() - loginScope disappeared, TODO: find out the reason why this happen')
       // login('loginScope disappeared')
       // return
       return setTimeout(checkScan, 1000)
@@ -245,13 +270,13 @@
   }
 
   function login (data) {
-    log('login(' + data + ')')
+    console.log('login(' + data + ')')
     loginState(true)
     WechatyBro.emit('login', data)
   }
 
   function logout (data) {
-    log('logout(' + data + ')')
+    console.log('logout(' + data + ')')
 
     loginState(false)
 
@@ -266,7 +291,7 @@
   }
 
   function ding (data) {
-    log('recv ding')
+    console.log('recv ding' + data)
     return data || 'dong'
   }
 
@@ -810,8 +835,10 @@
     },
 
     // funcs
+    test,
     ding,   // simple return 'dong'
-    emit:   window.wechatyPuppetBridgeEmit,  // send event to PuppetPuppeteerBridge in Node.js
+    emit,
+    // emit:   window.wechatyPuppetBridgeEmit,  // send event to PuppetPuppeteerBridge in Node.js
     init,   // initialize WechatyBro @ Browser
     log,    // log to Node.js
     logout, // logout current logined user
