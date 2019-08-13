@@ -23,8 +23,10 @@
 // tslint:disable:arrow-parens
 // tslint:disable:ter-no-irregular-whitespace
 
-import test  from 'blue-tape'
-import sinon from 'sinon'
+import {
+  test,
+  sinon,
+}           from 'tstest'
 
 import {
   // config,
@@ -51,6 +53,7 @@ import {
 // }
 
 class PuppetTest extends PuppetPuppeteer {
+
   public contactRawPayload (id: string) {
     return super.contactRawPayload(id)
   }
@@ -60,6 +63,7 @@ class PuppetTest extends PuppetPuppeteer {
   public messageRawPayload (id: string) {
     return super.messageRawPayload(id)
   }
+
 }
 
 // class PuppetPuppeteerTest extends PuppetPuppeteer {
@@ -81,7 +85,7 @@ test('constructor()', async t => {
     id:     '179242112323992762',
   }
   const sandbox = sinon.createSandbox()
-  const mockMessagePayload = (_: string) => {
+  const mockMessagePayload = async (/* _: string */) => {
     const payload: MessagePayload = {
       fromId    : EXPECTED.from,
       id        : EXPECTED.id,
@@ -92,10 +96,10 @@ test('constructor()', async t => {
     return payload
   }
 
-  sandbox.stub(puppet, 'contactPayload').returns({})
+  sandbox.stub(puppet, 'contactPayload').returns({} as any)
   // sandbox.stub(puppet, 'contactPayloadCache').returns({})
 
-  sandbox.stub(puppet, 'roomPayload').returns({})
+  sandbox.stub(puppet, 'roomPayload').returns({} as any)
   // sandbox.stub(puppet, 'roomPayloadCache').returns({})
 
   sandbox.stub(puppet, 'messagePayload').callsFake(mockMessagePayload)
@@ -105,8 +109,8 @@ test('constructor()', async t => {
 
   const msgPayload = await puppet.messagePayload(rawPayload.MsgId)
 
-  t.is(msgPayload.id      , EXPECTED.id   , 'id right')
-  t.is(msgPayload.fromId  , EXPECTED.from , 'from right')
+  t.is(msgPayload.id,     EXPECTED.id,    'id right')
+  t.is(msgPayload.fromId, EXPECTED.from,  'from right')
 
   sandbox.restore()
 })
@@ -128,7 +132,7 @@ test('ready()', async t => {
   // Mock
   function mockContactRawPayload (id: string) {
     log.silly('TestMessage', `mocked getContact(%s)`, id)
-    return new Promise(resolve => {
+    return new Promise<any>(resolve => {
       let obj = {}
       switch (id) {
         case expectedFromUserName:
@@ -145,7 +149,7 @@ test('ready()', async t => {
           break
         default:
           log.error('TestMessage', `mocked getContact(%s) unknown`, id)
-          t.fail('mocked getContact(${id}) unknown')
+          t.fail(`mocked getContact(${id}) unknown`)
           break
       }
       log.silly('TestMessage', 'setTimeout mocked getContact')
@@ -156,9 +160,9 @@ test('ready()', async t => {
     })
   }
 
-  function mockMessageRawPayload (id: string) {
+  async function mockMessageRawPayload (id: string) {
     if (id === rawPayload.MsgId) {
-      return rawPayload
+      return rawPayload as any
     }
     return {}
   }
@@ -188,10 +192,10 @@ test('ready()', async t => {
   const fromContactPayload = await puppet.contactPayload(fromId)
   const toContactPayload   = await puppet.contactPayload(toId)
 
-  t.is(fromId                   , expectedFromUserName, 'contact ready for FromUserName')
-  t.is(fromContactPayload.name  , expectedFromNickName, 'contact ready for FromNickName')
-  t.is(toId                     , expectedToUserName  , 'contact ready for ToUserName')
-  t.is(toContactPayload.name    , expectedToNickName  , 'contact ready for ToNickName')
+  t.is(fromId,                  expectedFromUserName, 'contact ready for FromUserName')
+  t.is(fromContactPayload.name, expectedFromNickName, 'contact ready for FromNickName')
+  t.is(toId,                    expectedToUserName,   'contact ready for ToUserName')
+  t.is(toContactPayload.name,   expectedToNickName,   'contact ready for ToNickName')
 
   sandbox.restore()
 })

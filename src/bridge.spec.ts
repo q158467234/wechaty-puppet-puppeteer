@@ -50,7 +50,10 @@ const PUPPETEER_LAUNCH_OPTIONS = {
 }
 
 test('PuppetPuppeteerBridge', async (t) => {
-  const bridge = new Bridge({ memory: new MemoryCard() })
+  const memory = new MemoryCard()
+  await memory.load()
+
+  const bridge = new Bridge({ memory })
   try {
     await bridge.start()
     await bridge.stop()
@@ -60,6 +63,7 @@ test('PuppetPuppeteerBridge', async (t) => {
   }
 })
 
+/* eslint indent: off */
 test('preHtmlToXml()', async (t) => {
   const BLOCKED_HTML_ZH = [
     '<pre style="word-wrap: break-word; white-space: pre-wrap;">',
@@ -190,6 +194,7 @@ test('clickSwitchAccount()', async t => {
 
 test('WechatyBro.ding()', async t => {
   const memory = new MemoryCard(Math.random().toString(36).substr(2, 5))
+  await memory.load()
   const bridge = new Bridge({
     memory,
   })
@@ -200,6 +205,7 @@ test('WechatyBro.ding()', async t => {
     t.pass('should init Bridge')
 
     const retDing = await bridge.evaluate(() => {
+      // eslint-disable-next-line
       return WechatyBro.ding()
     }) as string
 
@@ -213,6 +219,6 @@ test('WechatyBro.ding()', async t => {
   } catch (err) {
     t.fail('exception: ' + err.message)
   } finally {
-    memory.destroy()
+    await memory.destroy()
   }
 })

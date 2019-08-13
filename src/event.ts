@@ -38,6 +38,10 @@ import {
   WebMessageType,
 }                         from './web-schemas'
 
+import {
+  normalizeScanStatus,
+}                         from './pure-function-helpers/normalize-scan-status'
+
 /* tslint:disable:variable-name */
 export const Event = {
   onDing,
@@ -98,7 +102,7 @@ async function onScan (
   this.emit('watchdog', food)
 
   const qrcode = payloadFromBrowser.url.replace(/\/qrcode\//, '/l/')
-  const status = payloadFromBrowser.code
+  const status = normalizeScanStatus(payloadFromBrowser.code)
 
   this.emit('scan', qrcode, status)
 }
@@ -161,8 +165,11 @@ async function onLogin (
     await this.saveCookie()
     // }
 
-    // fix issue #668
-    await this.waitStable()
+    // fix issue https://github.com/Chatie/wechaty-puppet-puppeteer/issues/107
+    // we do not wait `ready` before emit `login`
+    this.waitStable().catch(e => {
+      log.error('PuppetPuppeteerEvent', 'onLogin() this.waitStable() rejection: %s', e && e.message)
+    })
 
     await this.login(userId)
 
@@ -170,8 +177,6 @@ async function onLogin (
     log.error('PuppetPuppeteerEvent', 'onLogin() exception: %s', e)
     throw e
   }
-
-  return
 }
 
 async function onLogout (

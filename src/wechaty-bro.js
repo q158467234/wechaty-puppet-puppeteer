@@ -38,6 +38,9 @@
  * read more about this in puppet-web-bridge.ts
  */
 
+/* eslint no-undef: off */
+/* eslint sort-keys: off */
+
 (function () {
   function init () {
     if (!angularIsReady()) {
@@ -131,7 +134,7 @@
     var rootScope   = injector.get('$rootScope')
     var loginScope  = angular.element('[ng-controller="loginController"]').scope()
 
-/*
+    /*
     // method 1
     appFactory.syncOrig = appFactory.sync
     appFactory.syncCheckOrig = appFactory.syncCheck
@@ -163,14 +166,14 @@
 
     // get all we need from wx in browser(angularjs)
     WechatyBro.glue = {
-      injector,
       http,
+      injector,
       mmHttp,
       state,
 
       accountFactory,
-      chatroomFactory,
       chatFactory,
+      chatroomFactory,
       confFactory,
       contactFactory,
       emojiFactory,
@@ -306,22 +309,22 @@
     // hook chatFactory._recalledMsgProcess, resolve emit RECALLED type msg
     var oldRecalledMsgProcess = chatFactory._recalledMsgProcess
     chatFactory._recalledMsgProcess = function (msg) {
-      oldRecalledMsgProcess(msg)
+      try {
+        oldRecalledMsgProcess.call(chatFactory, msg)
+      } catch (e) {
+        log('call oldRecalledMsgProcess failed:' + e.message)
+      }
       var m = Object.assign({}, msg)
       var content = utilFactory.htmlDecode(m.MMActualContent)
       content = utilFactory.encodeEmoji(content)
+      // remove <br/> here
+      content = content.replace(/<br.*?\/>/g, '')
       var revokemsg = utilFactory.xml2json(content).revokemsg
       if (revokemsg.msgid) {
-        var chatMsgs = chatFactory.getChatMessage(m.MMPeerUserName)
-        var i = chatFactory._findMessageByMsgId(chatMsgs, revokemsg.msgid)
-        if (i > -1) {
-          m = chatMsgs[i]
-          m.MsgType = confFactory.MSGTYPE_RECALLED
-        } else {
-          m.MsgId = revokemsg.msgid
-          m.MMActualContent = m.Content = revokemsg.replacemsg.replace(/"/g, '')
-        }
-        WechatyBro.emit('message', m)
+        // add recalled message
+        m.MsgType = confFactory.MSGTYPE_RECALLED
+        m.MMActualContent = revokemsg.msgid
+        chatFactory.addChatMessage(m)
       }
     }
   }
@@ -563,8 +566,8 @@
     }
     var accountFactory = WechatyBro.glue.accountFactory
     return accountFactory
-            ? accountFactory.getUserName()
-            : null
+      ? accountFactory.getUserName()
+      : null
   }
 
   function contactList () {
@@ -579,8 +582,8 @@
       attempt = attempt || 0
 
       var contactIdList = contactFactory
-                          .getAllFriendContact()
-                          .map(c => c.UserName)
+        .getAllFriendContact()
+        .map(c => c.UserName)
 
       if (contactIdList && contactIdList.length) {
         done(contactIdList)
@@ -621,15 +624,15 @@
           count   : 3,
           timeout : 1e4,
           serial  : !0,
-        }
+        },
       })
-      .success(() => {
-        contact.RemarkName = remark
-        return resolve(true)
-      })
-      .error(() => {
-        return resolve(false)  // TODO: use reject???
-      })
+        .success(() => {
+          contact.RemarkName = remark
+          return resolve(true)
+        })
+        .error(() => {
+          return resolve(false)  // TODO: use reject???
+        })
     })
   }
 
@@ -645,8 +648,8 @@
     // }
     // log(match.toString())
     return contactFactory.getAllChatroomContact()
-                        //  .filter(r => match(r.NickName))
-                         .map(r => r.UserName)
+      //  .filter(r => match(r.NickName))
+      .map(r => r.UserName)
   }
 
   function roomDelMember (ChatRoomName, UserName) {
@@ -668,7 +671,7 @@
         return resolve(0)
       }, 10 * 1000)
 
-      chatroomFactory.addMember(ChatRoomName, UserName, function (result) {
+      chatroomFactory.addMember(ChatRoomName, UserName, function (/* result */) {
         clearTimeout(timer)
         return resolve(1)
       })
@@ -680,7 +683,7 @@
     return chatroomFactory.modTopic(ChatRoomName, topic)
   }
 
-  function roomCreate (UserNameList, topic) {
+  function roomCreate (UserNameList/* , topic */) {
     var UserNameListArg = UserNameList.map(function (n) { return { UserName: n } })
 
     var chatroomFactory = WechatyBro.glue.chatroomFactory
@@ -688,36 +691,36 @@
 
     return new Promise(resolve => {
       chatroomFactory.create(UserNameListArg)
-                      .then(function (r) {
-                        // eslint-disable-next-line
-                        if (r.BaseResponse && 0 == r.BaseResponse.Ret || -2013 == r.BaseResponse.Ret) {
-                          state.go('chat', { userName: r.ChatRoomName }) // BE CAREFUL: key name is userName, not UserName! 20161001
-                          // if (topic) {
-                          //   setTimeout(_ => roomModTopic(r.ChatRoomName, topic), 3000)
-                          // }
-                          if (!r.ChatRoomName) {
-                            throw new Error('chatroomFactory.create() got empty r.ChatRoomName')
-                          }
-                          resolve(r.ChatRoomName)
-                        } else {
-                          throw new Error('chatroomFactory.create() error with Ret: '
-                                            + r && r.BaseResponse.Ret
-                                            + 'with ErrMsg: '
-                                            + r && r.BaseResponse.ErrMsg
-                                        )
-                        }
-                      })
-                      .catch(function (e) {
-                        // TODO change to reject (BREAKIKNG CHANGES)
-                        resolve(
-                          JSON.parse(
-                            JSON.stringify(
-                              e
-                              , Object.getOwnPropertyNames(e)
-                            )
-                          )
-                        )
-                      })
+        .then(function (r) {
+          // eslint-disable-next-line
+          if (r.BaseResponse && 0 == r.BaseResponse.Ret || -2013 == r.BaseResponse.Ret) {
+            state.go('chat', { userName: r.ChatRoomName }) // BE CAREFUL: key name is userName, not UserName! 20161001
+            // if (topic) {
+            //   setTimeout(_ => roomModTopic(r.ChatRoomName, topic), 3000)
+            // }
+            if (!r.ChatRoomName) {
+              throw new Error('chatroomFactory.create() got empty r.ChatRoomName')
+            }
+            resolve(r.ChatRoomName)
+          } else {
+            throw new Error('chatroomFactory.create() error with Ret: '
+                              + r && r.BaseResponse.Ret
+                              + 'with ErrMsg: '
+                              + r && r.BaseResponse.ErrMsg
+            )
+          }
+        })
+        .catch(function (e) {
+          // TODO change to reject (BREAKIKNG CHANGES)
+          resolve(
+            JSON.parse(
+              JSON.stringify(
+                e
+                , Object.getOwnPropertyNames(e)
+              )
+            )
+          )
+        })
     })
   }
 
@@ -737,15 +740,16 @@
         Ticket,
         VerifyContent,
       })
-      .then(() => {  // succ
-        // alert('ok')
-        // log('friendAdd(' + UserName + ', ' + VerifyContent + ') done')
-        resolve(true)
-      }, (err) => {    // fail
-        // alert('not ok')
-        log('friendAdd(' + UserName + ', ' + VerifyContent + ') fail: ' + err)
-        resolve(false)
-      })
+        .then(() => {  // succ
+          // alert('ok')
+          // log('friendAdd(' + UserName + ', ' + VerifyContent + ') done')
+          return resolve(true)
+        })
+        .catch((err) => {    // fail
+          // alert('not ok')
+          log('friendAdd(' + UserName + ', ' + VerifyContent + ') fail: ' + err)
+          resolve(false)
+        })
     })
   }
 
@@ -763,7 +767,7 @@
         // alert('ok')
         log('friendVerify(' + UserName + ', ' + Ticket + ') done')
         return resolve(true)
-      }, err => {       // fail
+      }).catch(err => {       // fail
         // alert('err')
         log('friendVerify(' + UserName + ', ' + Ticket + ') fail' + err)
         return resolve(false)

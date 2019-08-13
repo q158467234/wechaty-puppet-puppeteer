@@ -1,3 +1,5 @@
+#!/usr/bin/env ts-node
+
 /**
  *   Wechaty - https://github.com/chatie/wechaty
  *
@@ -16,14 +18,27 @@
  *   limitations under the License.
  *
  */
-import { PuppetPuppeteer }  from './puppet-puppeteer'
 
-export {
-  VERSION,
-  log,
-}              from './config'
+import {
+  test,
+}           from 'tstest'
 
-export {
-  PuppetPuppeteer,
-}
-export default PuppetPuppeteer
+import {
+  ScanStatus,
+}               from 'wechaty-puppet'
+
+import { normalizeScanStatus } from './normalize-scan-status'
+
+test('normalizeScanStatus()', async t => {
+  const SCAN_STATUS_LIST = [
+    [0, ScanStatus.Waiting],
+    [200, ScanStatus.Confirmed],
+    [201, ScanStatus.Scanned],
+    [408, ScanStatus.Timeout],
+  ]
+
+  for (const [puppeteerStatus, EXPECT_PUPPET_STATUS] of SCAN_STATUS_LIST) {
+    const puppetStatus = normalizeScanStatus(puppeteerStatus)
+    t.is(puppetStatus, EXPECT_PUPPET_STATUS, `should convert status code from puppeer(${puppeteerStatus}) to puppet(${EXPECT_PUPPET_STATUS})`)
+  }
+})

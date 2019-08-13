@@ -22,9 +22,7 @@
 // tslint:disable:only-arrow-functions
 // tslint:disable:arrow-parens
 
-import test  from 'blue-tape'
-import sinon from 'sinon'
-// const sinonTest   = require('sinon-test')(sinon, {
+import { test, sinon } from 'tstest'// const sinonTest   = require('sinon-test')(sinon, {
 //   useFakeTimers: {  // https://github.com/sinonjs/lolex
 //     advanceTimeDelta  : 10,
 //     shouldAdvanceTime : true,
@@ -39,6 +37,7 @@ import { Event }            from './event'
 import { PuppetPuppeteer }  from './puppet-puppeteer'
 
 class PuppetTest extends PuppetPuppeteer {
+
   public contactRawPayload (id: string) {
     return super.contactRawPayload(id)
   }
@@ -48,6 +47,7 @@ class PuppetTest extends PuppetPuppeteer {
   public messageRawPayload (id: string) {
     return super.messageRawPayload(id)
   }
+
 }
 
 // test('Puppet smoke testing', async t => {
@@ -63,6 +63,7 @@ class PuppetTest extends PuppetPuppeteer {
 
 test('login/logout events', async t => {
   const sandbox = sinon.createSandbox()
+
   try {
     const puppet  = new PuppetTest()
 
@@ -71,21 +72,24 @@ test('login/logout events', async t => {
     sandbox.stub(Bridge.prototype, 'getUserName').resolves('mockedUserName')
     sandbox.stub(Bridge.prototype, 'contactList')
       .onFirstCall().resolves([])
-      .onSecondCall().resolves([1])
-      .resolves([1, 2])
+      .onSecondCall().resolves(['1'])
+      .resolves(['1', '2'])
 
     sandbox.stub(puppet, 'contactRawPayload').resolves({
       NickName: 'mockedNickName',
       UserName: 'mockedUserName',
-    })
+    } as any)
     // sandbox.stub(puppet, 'waitStable').resolves()
+
+    const readySpy = sandbox.spy()
+    puppet.on('ready', readySpy)
 
     await puppet.start()
     t.pass('should be inited')
-    t.is(puppet.logonoff() , false  , 'should be not logined')
+    t.is(puppet.logonoff(), false, 'should be not logined')
 
-    const future = new Promise(r => puppet.once('login', r))
-                        .catch(e => t.fail(e))
+    const future = new Promise(resolve => puppet.once('login', resolve))
+      .catch(e => t.fail(e))
     puppet.bridge.emit('login', 'TestPuppetPuppeteer')
     await future
 
@@ -93,11 +97,25 @@ test('login/logout events', async t => {
 
     t.ok((puppet.bridge.getUserName as any).called, 'bridge.getUserName should be called')
 
+    // FIXME: improve the performance of the test by mocking the time
+    // TODO(huan) July 2018: use sinon.clock / sinon.useFakeTimers() at here
+    await new Promise(resolve => setTimeout(resolve, 7000))
+
     // Puppet will not ready the contact, so the contactRawPayload might not be called at here. Huan, 2018.6
     // t.ok((puppet.contactRawPayload as any).called,  'puppet.contactRawPayload should be called')
 
-    t.ok((Bridge.prototype.contactList as any).called,       'contactList stub should be called')
-    t.is((Bridge.prototype.contactList as any).callCount, 4, 'should call stubContacList 4 times')
+    t.ok((Bridge.prototype.contactList as any).called, 'contactList stub should be called')
+
+    /**
+     * 6 times is:
+     *
+     * 0, 1, 2 is for first 3 calls for contactList()
+     *
+     * 3, 4, 5 is PuppetPuppeteer.waitStable() for `unchangedNum` to reach 3 times.
+     */
+    t.is((Bridge.prototype.contactList as any).callCount, 6, 'should call stubContacList 6 times')
+
+    t.ok(readySpy.called, 'should emit ready event, after login')
 
     const logoutPromise = new Promise((resolve) => puppet.once('logout', () => resolve('logoutFired')))
     puppet.bridge.emit('logout')

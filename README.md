@@ -20,6 +20,7 @@ Wechaty Puppet for Puppeteer
 
 1. WeChat Account that registered after 2017 mignt not be able to login Web Wechat, so it can not use PuppetPuppeteer with Wechaty. Please make sure your WeChat Account can be able to login by visiting <https://wx.qq.com>
 1. Web API can not create room and invite members to room since 2018.
+1. Can not Receive/Send message from Work Wechat.
 
 If you want to break the above limitations, please consider to use a Wechaty Puppet other than using Web API, like [wechaty-puppet-padchat](https://github.com/lijiarui/wechaty-puppet-padchat).
 
@@ -29,25 +30,72 @@ Learn more about the Puppet at [Wechaty wiki: Puppet](https://github.com/Chatie/
 
 Cause `storage.googleapis.com` is blocked in mainland china, you'd better config by following guide.
 
-### `npm` user
+### 1. Linux & Mac
 
-```bash
-npm config set registry https://registry.npm.taobao.org
-npm config set disturl https://npm.taobao.org/dist
-npm config set puppeteer_download_host https://storage.googleapis.com.cnpmjs.org
+```shell
+PUPPETEER_DOWNLOAD_HOST=https://npm.taobao.org/mirrors npm install wechaty-puppet-puppeteer
 ```
 
-then you can check your `$HOME/.npmrc`
+### 2. Windows
 
-### `yarn` user
-
-```bash
-yarn config set registry https://registry.npm.taobao.org
-yarn config set disturl https://npm.taobao.org/dist
-yarn config set puppeteer_download_host https://storage.googleapis.com.cnpmjs.org
+```shell
+SET PUPPETEER_DOWNLOAD_HOST=https://npm.taobao.org/mirrors npm install wechaty-puppet-puppeteer
 ```
 
-then you can check your `$HOME/.yarnrc`
+Learn more from <https://github.com/GoogleChrome/puppeteer/issues/1597#issuecomment-351945645>
+
+## How to set puppeteer launchOptions?
+
+An example of adding executablePath to puppeteer.launch():
+
+```js
+const bot = new Wechaty({
+  name: 'mybot',
+  puppet: 'wechaty-puppet-puppeteer',
+  // ...
+  puppetOptions: {
+    endpoint: '<executablePath>'
+  }
+});
+
+// or
+const bot = new Wechaty({
+  name: 'mybot',
+  puppet: 'wechaty-puppet-puppeteer',
+  // ...
+  puppetOptions: {
+    launchOptions: {
+      executablePath: '<executablePath>',
+      // ... others launchOptions, see: https://github.com/GoogleChrome/puppeteer/blob/v1.18.1/docs/api.md#puppeteerlaunchoptions
+    }
+  }
+});
+```
+
+## HISTORY
+
+### v0.15 master
+
+### v0.14 Aug 2018
+
+1. First Stable Release
+1. Follow latest typings
+
+### v0.2 May 2018
+
+1. Promote to solo package: `wechaty-puppet-puppeteer`
+
+## FAQ
+
+### 1. chrome-linux/chrome: error while loading shared libraries: libX11.so.6: cannot open shared object file: No such file or directory
+
+You need to be able to run chrome in your Linux environment. If you are using Ubuntu Linux:
+
+```sh
+sudo apt-get install libxss1
+```
+
+See: <https://github.com/Chatie/wechaty/issues/1152>
 
 ## AUTHOR
 
@@ -59,6 +107,6 @@ then you can check your `$HOME/.yarnrc`
 
 ## COPYRIGHT & LICENSE
 
-* Code & Docs © 2016-2018 Huan LI \<zixia@zixia.net\>
+* Code & Docs © 2016-2019 Huan LI \<zixia@zixia.net\>
 * Code released under the Apache-2.0 License
 * Docs released under Creative Commons
