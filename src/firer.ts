@@ -289,7 +289,7 @@ export class Firer {
 
         await this.puppet.contactPayload(inviterContactId)
         await this.puppet.roomPayload(roomId)
-
+        // @ts-ignore
         this.puppet.emit('room-join', roomId, inviteeContactIdList, inviterContactId)
 
         return true
@@ -355,6 +355,7 @@ export class Firer {
      *                  it will be 2 sys message, instead of 1 sys message contains 2 leavers.
      * @huan 2018 May: we need to generilize the pattern for future usage.
      */
+    // @ts-ignore
     this.puppet.emit('room-leave', roomId, [leaverContactId], removerContactId)
 
     setTimeout(async () => {
@@ -395,6 +396,7 @@ export class Firer {
     }
 
     try {
+      // @ts-ignore
       this.puppet.emit('room-topic', roomId, topic, oldTopic, changerContactId)
       return true
     } catch (e) {

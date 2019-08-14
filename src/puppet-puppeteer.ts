@@ -106,6 +106,7 @@ import {
 
 export type ScanFoodType   = 'scan' | 'login' | 'logout'
 
+// @ts-ignore
 export class PuppetPuppeteer extends Puppet {
 
   public static readonly VERSION = VERSION
@@ -1016,7 +1017,7 @@ export class PuppetPuppeteer extends Puppet {
         if (!recommendInfo) {
           throw new Error('no recommendInfo')
         }
-
+        // @ts-ignore
         const payloadReceive: FriendshipPayloadReceive = {
           contactId : recommendInfo.UserName,
           hello     : recommendInfo.Content,
@@ -1027,6 +1028,7 @@ export class PuppetPuppeteer extends Puppet {
         return payloadReceive
 
       case WebMessageType.SYS:
+        // @ts-ignore
         const payloadConfirm: FriendshipPayloadConfirm = {
           contactId : rawPayload.FromUserName,
           id        : rawPayload.MsgId,

@@ -36,6 +36,7 @@ import { Bridge }           from './bridge'
 import { Event }            from './event'
 import { PuppetPuppeteer }  from './puppet-puppeteer'
 
+// @ts-ignore
 class PuppetTest extends PuppetPuppeteer {
 
   public contactRawPayload (id: string) {
